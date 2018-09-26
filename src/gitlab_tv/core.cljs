@@ -1,7 +1,9 @@
 (ns gitlab-tv.core
   (:require [cemerick.url :as url]
             [rum.core :as rum]
-            [clojure.string :as string]))
+            [clojure.string :as string]
+            [gitlab-tv.gitlab :as gitlab]
+            [promesa.core :as p]))
 
 
 (enable-console-print!)
@@ -64,7 +66,8 @@
 
 ;;;; STATE
 
-(defonce *state (atom {:page :init}))
+(defonce *state (atom {:page :init
+                       :projects {}}))
 
 (defn initialize [state]
   (let [href js/window.location.href
@@ -76,13 +79,41 @@
       (not (string/blank? token)) (assoc :page :tv))))
 
 
+(defn set-loading-error [error]
+  (swap! *state assoc :error error :page :init))
+
+
+;;;; DATA
+
+(defn merge-projects [projects]
+  (let [projects (->> projects
+                      (map (juxt :id identity)))]
+    (swap! *state update :projects merge projects)))
+
+
+(defn fetch-projects []
+  (let [config (:config @*state)
+        fetch (gitlab/api config)
+        group-id (:group-id config)
+        request (if (string/blank? group-id)
+                  (gitlab/projects)
+                  (gitlab/group-projects group-id))
+        url (:url request)]
+    (-> (fetch request)
+        (p/then merge-projects)
+        (p/catch (fn [error]
+                   (set-loading-error
+                    (str error " while fetching projects from " url)))))))
+
+
 ;;;; VIEWS
 
 (defmulti render-page :page)
 
 (defmethod render-page :init [state]
   (let [fields (:fields state)
-        tv-url (tv-url state)]
+        tv-url (tv-url state)
+        error (:error state)]
     [:div
      [:div.hero.is-primary
       [:div.hero-body
@@ -91,6 +122,10 @@
         [:h2.subtitle "Configure your settings and hit load to watch some gitlab tv"]]]]
      [:div.section
       [:div.container
+       (when error
+         [:article.message.is-danger
+          [:div.message-body
+           error]])
        (->>
         fields
         vals
@@ -125,9 +160,25 @@
           "Load"]]]]]]))
 
 
-(defmethod render-page :tv [_]
-  [:div
-   [:button.button {:on-click #(swap! *state assoc :page :init)} "Config"]])
+(rum/defc poll <
+  {:did-mount (fn [s]
+                (fetch-projects)
+                s)}
+  [content]
+  content)
+
+(defmethod render-page :tv [state]
+  (poll
+   [:div
+    [:ul
+     (->> state
+          :projects
+          vals
+          (map :name)
+          (map-indexed
+           (fn [i p]
+             [:li {:key i} p])))]
+    [:button.button {:on-click #(swap! *state assoc :page :init)} "Config"]]))
 
 (rum/defc app < rum/reactive [state]
   (let [current-state (rum/react state)]

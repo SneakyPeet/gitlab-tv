@@ -12,7 +12,8 @@
                  [org.clojure/clojurescript "1.10.238"]
                  [org.clojure/core.async  "0.4.474"]
                  [com.cemerick/url "0.1.1"]
-                 [rum "0.11.2"]]
+                 [rum "0.11.2"]
+                 [funcool/httpurr "1.1.0"]]
 
   :plugins [[lein-figwheel "0.5.16"]
             [lein-cljsbuild "1.1.7" :exclusions [[org.clojure/clojure]]]]
