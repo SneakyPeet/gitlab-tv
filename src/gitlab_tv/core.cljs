@@ -51,7 +51,8 @@
                     [k (:value v)]))
              (into {}))]
     (-> field-config
-        (assoc :href href)
+        (assoc :href href
+               :refresh-rate-seconds 60)
         (update :debug #(= "true" %)))))
 
 
@@ -73,14 +74,15 @@
 
 (defonce *state (atom {:page :init
                        :projects {}
-                       :logs '()}))
+                       :logs '()
+                       :job-poll-id nil}))
 
 
 (defn log [message]
   (prn message)
   (swap! *state update :logs (fn [logs]
                                (->> (conj logs message)
-                                    (take 5)))))
+                                    (take 30)))))
 
 (defn initialize []
   (let [href js/window.location.href
@@ -112,17 +114,64 @@
   (swap! *state assoc :error error :page :init))
 
 
+(defn set-job-poll-id [id]
+  (swap! *state assoc :job-poll-id id))
+
+
 (defn merge-projects [projects]
   (let [projects (->> projects
                       (map (juxt :id identity)))]
-    (log (str "Received " (count projects) " Projects"))
     (swap! *state update :projects merge projects)))
 
 
-
+(defn merge-jobs [project jobs]
+  (let [jobs (->> jobs
+                  (map #(assoc % :project-id (:id project)))
+                  (map (juxt :id identity)))]
+    (swap! *state update :jobs merge jobs)))
 
 
 ;;;; PROCESS
+
+(defn fetch-job [project]
+  (let [{:keys [name_with_namespace id]} project
+        config (:config @*state)
+        fetch (gitlab/api log config)
+        request (gitlab/jobs id)]
+    (log (str "Fetching jobs for " name_with_namespace))
+    (-> (fetch request)
+        (p/then (fn [jobs]
+                  (log (str "Received " (count jobs) " for " name_with_namespace))
+                  (merge-jobs project jobs)))
+        (p/catch (fn [error]
+                   (let [m (str error " while fetching jobs")]
+                     (set-loading-error m)))))))
+
+
+(defn fetch-jobs []
+  (let [projects (:projects @*state)]
+    (log (str "Fetching jobs for " (count projects) " projects"))
+    (doseq [project (vals projects)]
+      (fetch-job project))))
+
+
+(defn start-job-polling []
+  (log "Starting Job Polling")
+  (let [interval (get-in @*state [:config :refresh-rate-seconds])
+        interval (* 1000 interval)
+        job-id (js/setInterval fetch-jobs interval)]
+    (swap! *state assoc :job-poll-id job-id)))
+
+
+(defn stop-job-polling []
+  (log "Stopping Job Polling")
+  (if-let [job-poll-id (:job-poll-id @*state)]
+    (do
+      (js/clearInterval job-poll-id)
+      (set-job-poll-id nil)
+      (log (str "Stopped Job Polling (id: " job-poll-id ")")))
+    (log "Job Not Running")))
+
 
 (defn fetch-projects []
   (let [config (:config @*state)
@@ -134,7 +183,14 @@
         url (:url request)
         path (:path config)]
     (-> (fetch request)
-        (p/then merge-projects)
+        (p/then (fn [projects]
+                  (if (empty? projects)
+                    (set-loading-error "Zero Projects Where Loaded")
+                    (do
+                      (log (str "Received " (count projects) " Projects"))
+                      (merge-projects projects)
+                      (fetch-jobs)
+                      (start-job-polling)))))
         (p/catch (fn [error]
                    (let [m (str error " while fetching " url " from " path)]
                      (set-loading-error m)))))))
@@ -193,7 +249,10 @@
 (rum/defc poll <
   {:did-mount (fn [s]
                 (fetch-projects)
-                s)}
+                s)
+   :will-unmount (fn [s]
+                   (stop-job-polling)
+                   s)}
   [content]
   content)
 
@@ -210,6 +269,7 @@
                (map-indexed
                 (fn [i m]
                   [:li {:key i} m])))]])
+      [:h1 (count (:jobs state))]
       [:ul
        (->> state
             :projects
@@ -228,7 +288,10 @@
 ;;;; START
 
 (when-not (initialized?)
-  (initialize))
+  (initialize)
+  (doto js/window
+    (aset "onblur" #(set-page :init))
+    #_(aset "onfocus" #(set-page :tv))))
 
 
 (rum/mount (app *state) (.getElementById js/document "app"))

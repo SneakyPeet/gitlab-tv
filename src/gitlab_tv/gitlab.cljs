@@ -24,7 +24,7 @@
 (defn jobs [project-id]
   {:method :get
    :url (str "/projects/" project-id "/jobs")
-   :query-params {:per_page 1}})
+   :query-params {:per_page 100}})
 
 
 (defn- wrap-api-path [request path]
@@ -61,3 +61,17 @@
       (p/then
        (http/send! xhr/client request)
        process-response))))
+
+
+(comment
+  (let [api (api {:token "" :path "https://gitlab.com"})]
+    (->
+     (p/then (api (group-projects ""))
+             (fn [projects]
+               (p/resolved (-> projects (nth 4) :id))))
+     (p/then (fn [p] (api (jobs p))))
+     (p/then (fn [r] (prn r)))
+     (p/catch (fn [err]
+                (prn "err")
+                (prn err)))))
+  )
