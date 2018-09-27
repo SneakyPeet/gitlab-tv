@@ -2,7 +2,8 @@
   (:require [httpurr.client :as http]
             [httpurr.status :as s]
             [httpurr.client.xhr :as xhr]
-            [promesa.core :as p]))
+            [promesa.core :as p]
+            [clojure.string :as string]))
 
 
 (defn projects []
@@ -34,7 +35,7 @@
   (assoc-in request [:query-params :private_token] token))
 
 
-(defn decode
+(defn- decode
   [response]
   (-> response
       :body
@@ -44,18 +45,19 @@
 
 (defn- process-response
   [response]
-  (condp = (:status response)
-    s/ok           (p/resolved (decode response))
-    s/not-found    (p/rejected :not-found)
-    s/unauthorized (p/rejected :unauthorized)))
+  (if (= s/ok (:status response))
+    (p/resolved (decode response))
+    (if (string/blank? (:body response))
+      (p/rejected (str "Status " (:status response)))
+      (p/rejected (:message (decode response))))))
 
 
-(defn- api [config]
+(defn api [log config]
   (fn [request]
     (let [request (-> request
                       (wrap-api-path (:path config))
                       (wrap-token (:token config)))]
-      (prn (str "api " (name (:method request)) " " (:url request)))
+      (log (str "API " (name (:method request)) " " (:url request)))
       (p/then
        (http/send! xhr/client request)
        process-response))))

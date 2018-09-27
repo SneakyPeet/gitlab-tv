@@ -25,6 +25,10 @@
    {:id :group-id
     :description "Add your gitlab group id to see only group projects"
     :value ""
+    :optional? true}
+   {:id :debug
+    :description "set to true to view log"
+    :value "true"
     :optional? true}])
 
 
@@ -46,8 +50,9 @@
              (map (fn [[k v]]
                     [k (:value v)]))
              (into {}))]
-    (assoc field-config
-           :href href)))
+    (-> field-config
+        (assoc :href href)
+        (update :debug #(= "true" %)))))
 
 
 (defn tv-url [state]
@@ -67,43 +72,72 @@
 ;;;; STATE
 
 (defonce *state (atom {:page :init
-                       :projects {}}))
+                       :projects {}
+                       :logs '()}))
 
-(defn initialize [state]
+
+(defn log [message]
+  (prn message)
+  (swap! *state update :logs (fn [logs]
+                               (->> (conj logs message)
+                                    (take 5)))))
+
+(defn initialize []
   (let [href js/window.location.href
         fields-map (prep-fields-map href)
         config (prep-config href (vals fields-map))
-        token (:token config)]
-    (cond-> state
-      true (assoc :fields fields-map :config config :initialized? true)
-      (not (string/blank? token)) (assoc :page :tv))))
+        token (:token config)
+        state
+        (cond-> @*state
+          true (assoc :fields fields-map :config config :initialized? true)
+          (not (string/blank? token)) (assoc :page :tv))]
+    (reset! *state state)))
+
+
+(defn initialized? [] (:initialized? @*state))
+
+
+(defn update-config-field [id value]
+  (swap! *state
+         assoc-in
+         [:fields id :value]
+         value))
+
+
+(defn set-page [page]
+  (swap! *state assoc :page page))
 
 
 (defn set-loading-error [error]
   (swap! *state assoc :error error :page :init))
 
 
-;;;; DATA
-
 (defn merge-projects [projects]
   (let [projects (->> projects
                       (map (juxt :id identity)))]
+    (log (str "Received " (count projects) " Projects"))
     (swap! *state update :projects merge projects)))
 
 
+
+
+
+;;;; PROCESS
+
 (defn fetch-projects []
   (let [config (:config @*state)
-        fetch (gitlab/api config)
+        fetch (gitlab/api log config)
         group-id (:group-id config)
         request (if (string/blank? group-id)
                   (gitlab/projects)
                   (gitlab/group-projects group-id))
-        url (:url request)]
+        url (:url request)
+        path (:path config)]
     (-> (fetch request)
         (p/then merge-projects)
         (p/catch (fn [error]
-                   (set-loading-error
-                    (str error " while fetching projects from " url)))))))
+                   (let [m (str error " while fetching " url " from " path)]
+                     (set-loading-error m)))))))
 
 
 ;;;; VIEWS
@@ -141,12 +175,8 @@
                 {:class input-class
                  :type "text"
                  :value value
-                 :on-change
-                 (fn [e]
-                   (swap! *state
-                          assoc-in
-                          [:fields id :value]
-                          (.. e -target -value)))}]]
+                 :on-change #(update-config-field id (.. % -target -value))
+                 }]]
               (when description
                 [:p.help {:class input-class} description])]))))
        [:div.field.has-addons
@@ -167,18 +197,28 @@
   [content]
   content)
 
+
 (defmethod render-page :tv [state]
-  (poll
-   [:div
-    [:ul
-     (->> state
-          :projects
-          vals
-          (map :name)
-          (map-indexed
-           (fn [i p]
-             [:li {:key i} p])))]
-    [:button.button {:on-click #(swap! *state assoc :page :init)} "Config"]]))
+  (let [{:keys [config logs]} state]
+    (poll
+     [:div
+      (when (:debug config)
+        [:div.notification {:style {:position "absolute" :bottom "0" :right "0"}}
+         [:ul
+          (->> logs
+               reverse
+               (map-indexed
+                (fn [i m]
+                  [:li {:key i} m])))]])
+      [:ul
+       (->> state
+            :projects
+            vals
+            (map :name)
+            (map-indexed
+             (fn [i p]
+               [:li {:key i} p])))]
+      [:button.button {:on-click #(set-page :init)} "Config"]])))
 
 (rum/defc app < rum/reactive [state]
   (let [current-state (rum/react state)]
@@ -187,8 +227,8 @@
 
 ;;;; START
 
-(when-not (:initialized? @*state)
-  (swap! *state initialize))
+(when-not (initialized?)
+  (initialize))
 
 
 (rum/mount (app *state) (.getElementById js/document "app"))
