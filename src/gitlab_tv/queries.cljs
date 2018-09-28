@@ -8,7 +8,7 @@
                   (group-by :pipeline)
                   (map
                    (fn [[pipeline jobs]]
-                     (let [{:keys [project-id commit user]} (first jobs)
+                     (let [{:keys [project-id commit user tag]} (first jobs)
                            project (get projects project-id)
                            date (->> jobs
                                      (map (juxt :created_at :started_at))
@@ -23,17 +23,29 @@
                                            :jobs jobs})))]
                        (merge
                         (select-keys pipeline [:ref :status])
-                        (select-keys project [:name])
+                        (select-keys project [:name :project-id])
                         {:commit-user (:author_name commit)
+                         :commit-user-avatar (:avatar_url user)
                          :commit (:title commit)
                          :last_action date
-                         :stages stages}))))
+                         :stages stages
+                         :tag? tag}))))
                   (sort-by :last_action)
-                  reverse
-                  (take 50)
-                  #_(sort-by :created_at)
-                  #_(take 50)
-                  #_(map
-                   (fn [{:keys [project-id] :as job}]
-                     (assoc job :project (get projects project-id)))))]
+                  reverse)]
     jobs))
+
+
+(defn latest-builds [build-history]
+  (->> build-history
+       (group-by (juxt :project-id :ref))
+       (map (fn [[_ pipelines]]
+              (->> pipelines
+                   (filter #(not (contains? #{"pending" "running" "canceled" "created"} (:status %)) ))
+                   (sort-by :last_action)
+                   last)))))
+
+
+(defn failed-builds [latest-builds]
+  (->> latest-builds
+       (filter #(= "failed" (:status %)))
+       (filter #(not (true? (:tag? %))))))

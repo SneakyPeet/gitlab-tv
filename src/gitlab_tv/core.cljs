@@ -192,7 +192,7 @@
                       (log (str "Received " (count projects) " Projects"))
                       (merge-projects projects)
                       (fetch-jobs)
-                      #_(start-job-polling)))))
+                      (start-job-polling)))))
         (p/catch (fn [error]
                    (let [m (str error " while fetching " url " from " path)]
                      (set-loading-error m)))))))
@@ -308,33 +308,28 @@
 
 (defmethod render-page :tv [state]
   (let [{:keys [config logs projects jobs]} state
-        build-history (queries/build-history projects jobs)]
+        build-history (queries/build-history projects jobs)
+        latest-builds (queries/latest-builds build-history)
+        failed-builds (queries/failed-builds latest-builds)]
     (poll
      [:div.tv.has-background-dark
-      (when (:debug config)
-        [:div.notification {:style {:position "absolute" :bottom "0" :right "0"}}
-         [:ul
-          (->> logs
-               reverse
-               (map-indexed
-                (fn [i m]
-                  [:li {:key i} m])))]])
-      [:div.columns
-       [:div.column.is-three-quarters
+      [:div.columns.is-gapless
+       [:div.column
         [:table.table.is-fullwidth.has-text-white
          [:tbody
           (->> build-history
+               (take 30)
                (map-indexed
                 (fn [i {:keys [ref status name commit-user commit last_action stages]}]
                   [:tr {:class (pipeline-status-class status)}
                    [:td
                     [:ul
                      [:li.has-text-weight-bold.is-size-5 (pipeline-status-icon status) name]
-                     [:li #_(icon "fas fa-angle-double-right") status]]]
+                     [:li status]]]
                    [:td
                     [:ul
                      [:li.has-text-weight-bold (icon "fas fa-spinner fa-code-branch") ref]
-                     [:li.has-text-weight-semibold (icon "fas fa-user")commit-user]
+                     [:li.has-text-weight-semibold (icon "fas fa-user") commit-user]
                      [:li (icon "far fa-file")(humanize/truncate commit 50)]]
                     ]
                    [:td
@@ -357,9 +352,40 @@
                      [:li (icon "fas fa-clock") (humanize/datetime (js/Date. last_action))]
                      [:li (icon "fas fa-calendar-alt") (subs last_action 0 10)]]
                     ]])))]]]
-       [:div.column
-
-        [:button.button {:on-click #(set-page :init)} "Config"]]]])))
+       (when-not (empty? failed-builds)
+         [:div.column.is-narrow {:style {:min-width "300px"}}
+          (when-not (empty? failed-builds)
+            [:div
+             [:div.card.has-background-dark.is-shadowless
+              [:div.card-content {:style {:padding-bottom "0"}}
+               [:div.content
+                [:h3.title.is-marginless.has-text-white "Failed Builds"]]]]
+             (->> failed-builds
+                  (map-indexed
+                   (fn [i {:keys [name ref commit-user-avatar commit-user commit] :as p}]
+                     [:div.card.has-background-dark.has-text-white.is-shadowless
+                      [:div.card-content
+                       [:div.media
+                        [:div.media-left
+                         [:figure.image.is-48x48
+                          [:img {:src commit-user-avatar}]]]
+                        [:div.media-content
+                         [:p.title.is-5.has-text-white name]
+                         [:p.subtitle.is-6.has-text-white ref]]]
+                       [:div.content
+                        [:p [:strong.has-text-white "Blame: "] commit-user
+                         [:br] (humanize/truncate commit 50)]]]])))])])]
+      (when (:debug config)
+        [:div.notification {:style {:position "fixed" :bottom "0" :right "50px"}}
+         [:ul
+          (->> logs
+               reverse
+               (map-indexed
+                (fn [i m]
+                  [:li {:key i} m])))]])
+      [:button.button.is-dark
+       {:on-click #(set-page :init)
+        :style {:position "fixed" :bottom "5px" :right "5px"}} (icon "fas fa-cog")]])))
 
 
 (rum/defc app < rum/reactive [state]
