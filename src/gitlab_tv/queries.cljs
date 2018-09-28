@@ -27,6 +27,7 @@
                         {:commit-user (:author_name commit)
                          :commit-user-avatar (:avatar_url user)
                          :commit (:title commit)
+                         :short-hash (:short_id commit)
                          :last_action date
                          :stages stages
                          :tag? tag}))))

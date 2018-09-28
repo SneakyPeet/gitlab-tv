@@ -19,7 +19,10 @@
 
 (def fields
   [{:id :token
-    :description "Your Gitlab Api Token"
+    :description [:span "Your Gitlab Api Access Token ("
+                  [:a {:src "https://gitlab.com/profile/personal_access_tokens"}
+                   "https://gitlab.com/profile/personal_access_tokens"]
+                  ")"]
     :value ""}
    {:id :path
     :description "Path to your Gitlab"
@@ -30,7 +33,7 @@
     :optional? true}
    {:id :debug
     :description "set to true to view log"
-    :value "true"
+    :value ""
     :optional? true}])
 
 
@@ -313,6 +316,10 @@
         failed-builds (queries/failed-builds latest-builds)]
     (poll
      [:div.tv.has-background-dark
+      (when (empty? build-history)
+        [:div
+         [:h1.title.has-text-primary.has-text-centered "Loading all the Things"]
+         [:h2.subtitle.has-text-primary.has-text-centered "(╯°□°）╯︵ ┻━┻"]])
       [:div.columns.is-gapless
        [:div.column
         [:table.table.is-fullwidth.has-text-white
@@ -320,7 +327,7 @@
           (->> build-history
                (take 30)
                (map-indexed
-                (fn [i {:keys [ref status name commit-user commit last_action stages]}]
+                (fn [i {:keys [ref status name commit-user commit last_action stages short-hash]}]
                   [:tr {:class (pipeline-status-class status)}
                    [:td
                     [:ul
@@ -328,7 +335,7 @@
                      [:li status]]]
                    [:td
                     [:ul
-                     [:li.has-text-weight-bold (icon "fas fa-spinner fa-code-branch") ref]
+                     [:li.has-text-weight-bold (icon "fas fa-spinner fa-code-branch") ref " "]
                      [:li.has-text-weight-semibold (icon "fas fa-user") commit-user]
                      [:li (icon "far fa-file")(humanize/truncate commit 50)]]
                     ]
@@ -362,7 +369,7 @@
                 [:h3.title.is-marginless.has-text-white "Failed Builds"]]]]
              (->> failed-builds
                   (map-indexed
-                   (fn [i {:keys [name ref commit-user-avatar commit-user commit] :as p}]
+                   (fn [i {:keys [name ref commit-user-avatar commit-user commit short-hash] :as p}]
                      [:div.card.has-background-dark.has-text-white.is-shadowless
                       [:div.card-content
                        [:div.media
@@ -374,6 +381,7 @@
                          [:p.subtitle.is-6.has-text-white ref]]]
                        [:div.content
                         [:p [:strong.has-text-white "Blame: "] commit-user
+                         [:br] (icon "fas fa-code") short-hash
                          [:br] (humanize/truncate commit 50)]]]])))])])]
       (when (:debug config)
         [:div.notification {:style {:position "fixed" :bottom "0" :right "50px"}}
