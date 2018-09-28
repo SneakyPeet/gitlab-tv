@@ -14,13 +14,20 @@
                                      (map (juxt :created_at :started_at))
                                      (reduce into)
                                      sort
-                                     last)]
+                                     last)
+                           stages (->> jobs
+                                       (group-by :stage)
+                                       (map
+                                        (fn [[stage jobs]]
+                                          {:stage stage
+                                           :jobs jobs})))]
                        (merge
                         (select-keys pipeline [:ref :status])
                         (select-keys project [:name])
                         {:commit-user (:author_name commit)
                          :commit (:title commit)
-                         :last_action date}))))
+                         :last_action date
+                         :stages stages}))))
                   (sort-by :last_action)
                   reverse
                   (take 50)

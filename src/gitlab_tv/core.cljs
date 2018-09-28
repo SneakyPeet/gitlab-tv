@@ -272,6 +272,40 @@
     "has-background-black"))
 
 
+(defn pipeline-status-icon [status]
+  (let [icon
+        (case status
+          "pending" "far fa-clock"
+          "running" "fas fa-spinner fa-pulse fa-sync-alt"
+          "failed" nil
+          "success" nil
+          "canceled" nil
+          "skipped" nil
+          "manual" nil
+          nil)]
+    (when icon
+      [:span.icon.is-size-7
+       [:i {:class icon}]])))
+
+
+(defn job-status-icon [i job]
+  (let [icon
+        (case (:status job)
+          "created" "far fa-circle"
+          "pending" "far fa-clock"
+          "running" "fas fa-spinner fa-pulse fa-sync-alt"
+          "failed" "far fa-times-circle"
+          "success" "far fa-check-circle"
+          "canceled" "far fa-circle"
+          "skipped" "far fa-circle"
+          "manual" "far fa-circle"
+          "far fa-circle")]
+    [:span.icon.is-size-7.is-small {:key i :on-mouse-over #(js/tippy
+                                                            (.. % -target)
+                                                            (clj->js {:content (:name job)}))}
+     [:i {:class icon}]]))
+
+
 (defmethod render-page :tv [state]
   (let [{:keys [config logs projects jobs]} state
         build-history (queries/build-history projects jobs)]
@@ -291,17 +325,33 @@
          [:tbody
           (->> build-history
                (map-indexed
-                (fn [i {:keys [ref status name commit-user commit last_action]}]
+                (fn [i {:keys [ref status name commit-user commit last_action stages]}]
                   [:tr {:class (pipeline-status-class status)}
                    [:td
                     [:ul
-                     [:li.has-text-weight-bold name]
+                     [:li.has-text-weight-bold.is-size-5 (pipeline-status-icon status) name]
                      [:li #_(icon "fas fa-angle-double-right") status]]]
                    [:td
                     [:ul
-                     [:li.has-text-weight-bold (icon "fas fa-code-branch") ref]
-                     [:li (humanize/truncate commit 50)]]
+                     [:li.has-text-weight-bold (icon "fas fa-spinner fa-code-branch") ref]
+                     [:li.has-text-weight-semibold (icon "fas fa-user")commit-user]
+                     [:li (icon "far fa-file")(humanize/truncate commit 50)]]
                     ]
+                   [:td
+                    [:ul.is-pulled-left
+                     (->> stages
+                          (map-indexed
+                           (fn [i {:keys [stage jobs]}]
+                             [:li {:key i} stage])))]
+                    [:ul.is-pulled-left.job-icons
+                     (->> stages
+                          (map-indexed
+                           (fn [i {:keys [stage jobs]}]
+                             [:li {:key i}
+                              (->> jobs
+                                   (map-indexed
+                                    (fn [i job]
+                                      (job-status-icon i job))))])))]]
                    [:td
                     [:ul
                      [:li (icon "fas fa-clock") (humanize/datetime (js/Date. last_action))]
