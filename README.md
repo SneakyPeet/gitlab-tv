@@ -1,9 +1,12 @@
 # gitlab-tv
 
-An app for watching your gitlab pipelines. 
+An app for watching your gitlab pipelines.
+
+![Gitlab TV](/readme.png)
+
 Watch some TV here [https://sneakypeet.github.io/gitlab-tv/](https://sneakypeet.github.io/gitlab-tv/)
 
-Simply add your gitlab api access token and hit Load to start watching your pipelines. 
+Simply add your gitlab api access token and hit Load to start watching your pipelines.
 (note: the token is only set as a url param and never stored anywhere)
 
 Built with Figwheel and Clojurescript
