@@ -1,39 +1,23 @@
 # gitlab-tv
 
-FIXME: Write a one-line description of your library/project.
+An app for watching your gitlab pipelines. 
+Watch some TV here [https://sneakypeet.github.io/gitlab-tv/](https://sneakypeet.github.io/gitlab-tv/)
 
-## Overview
+Simply add your gitlab api access token and hit Load to start watching your pipelines. 
+(note: the token is only set as a url param and never stored anywhere)
 
-FIXME: Write a paragraph about the library/project and highlight its goals.
+Built with Figwheel and Clojurescript
 
-## Setup
+# Why?
 
-To get an interactive development environment run:
+Although similar dashboards like [Gitlab Pipelines TV Dashboard](https://github.com/KSF-Media/gitlab-dashboard) exist, I wanted more.
 
-    lein figwheel
+* An easier way to initialize the tv
+* A better view on the overall status of builds
+* A better view on pipeline stages (and possibly the ability to trigger builds)
+* Viewing projects related to group-id's
+* I did not have time to learn purescript to modify existing dashboards
 
-and open your browser at [localhost:3449](http://localhost:3449/).
-This will auto compile and send all changes to the browser without the
-need to reload. After the compilation process is complete, you will
-get a Browser Connected REPL. An easy way to try it is:
+# Development
 
-    (js/alert "Am I connected?")
-
-and you should see an alert in the browser window.
-
-To clean all compiled files:
-
-    lein clean
-
-To create a production build run:
-
-    lein do clean, cljsbuild once min
-
-And open your browser in `resources/public/index.html`. You will not
-get live reloading, nor a REPL. 
-
-## License
-
-Copyright © 2014 FIXME
-
-Distributed under the Eclipse Public License either version 1.0 or (at your option) any later version.
+This is a simple Fighweel and Clojurescript app built using Lein.
