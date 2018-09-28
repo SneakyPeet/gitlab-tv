@@ -21,6 +21,11 @@
 
   :source-paths ["src"]
 
+  :aliases {"build" ["do"
+                     "clean"
+                     ["cljsbuild" "once" "min"]
+                     ]}
+
   :cljsbuild {:builds
               [{:id "dev"
                 :source-paths ["src"]
