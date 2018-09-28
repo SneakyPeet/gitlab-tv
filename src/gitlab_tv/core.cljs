@@ -3,7 +3,9 @@
             [rum.core :as rum]
             [clojure.string :as string]
             [gitlab-tv.gitlab :as gitlab]
-            [promesa.core :as p]))
+            [gitlab-tv.queries :as queries]
+            [promesa.core :as p]
+            [clojure.contrib.humanize :as humanize]))
 
 
 (enable-console-print!)
@@ -190,7 +192,7 @@
                       (log (str "Received " (count projects) " Projects"))
                       (merge-projects projects)
                       (fetch-jobs)
-                      (start-job-polling)))))
+                      #_(start-job-polling)))))
         (p/catch (fn [error]
                    (let [m (str error " while fetching " url " from " path)]
                      (set-loading-error m)))))))
@@ -257,10 +259,24 @@
   content)
 
 
+(defn icon [class] [:span.icon.is-size-7 [:i {:class class}]])
+
+(defn pipeline-status-class [status]
+  (case status
+    "running" "has-background-link"
+    "pending" "has-background-info"
+    "success" "has-background-success"
+    "failed" "has-background-danger"
+    "canceled" "has-background-warning"
+    "skipped" "has-background-grey-light"
+    "has-background-black"))
+
+
 (defmethod render-page :tv [state]
-  (let [{:keys [config logs]} state]
+  (let [{:keys [config logs projects jobs]} state
+        build-history (queries/build-history projects jobs)]
     (poll
-     [:div
+     [:div.tv.has-background-dark
       (when (:debug config)
         [:div.notification {:style {:position "absolute" :bottom "0" :right "0"}}
          [:ul
@@ -269,29 +285,45 @@
                (map-indexed
                 (fn [i m]
                   [:li {:key i} m])))]])
-      [:h1 (count (:jobs state))]
-      [:ul
-       (->> state
-            :projects
-            vals
-            (map :name)
-            (map-indexed
-             (fn [i p]
-               [:li {:key i} p])))]
-      [:button.button {:on-click #(set-page :init)} "Config"]])))
+      [:div.columns
+       [:div.column.is-three-quarters
+        [:table.table.is-fullwidth.has-text-white
+         [:tbody
+          (->> build-history
+               (map-indexed
+                (fn [i {:keys [ref status name commit-user commit last_action]}]
+                  [:tr {:class (pipeline-status-class status)}
+                   [:td
+                    [:ul
+                     [:li.has-text-weight-bold name]
+                     [:li #_(icon "fas fa-angle-double-right") status]]]
+                   [:td
+                    [:ul
+                     [:li.has-text-weight-bold (icon "fas fa-code-branch") ref]
+                     [:li (humanize/truncate commit 50)]]
+                    ]
+                   [:td
+                    [:ul
+                     [:li (icon "fas fa-clock") (humanize/datetime (js/Date. last_action))]
+                     [:li (icon "fas fa-calendar-alt") (subs last_action 0 10)]]
+                    ]])))]]]
+       [:div.column
+
+        [:button.button {:on-click #(set-page :init)} "Config"]]]])))
+
 
 (rum/defc app < rum/reactive [state]
   (let [current-state (rum/react state)]
     (render-page current-state)))
 
 
-;;;; START
+;;;; STARTquarters
 
 (when-not (initialized?)
   (initialize)
-  (doto js/window
+  #_(doto js/window
     (aset "onblur" #(set-page :init))
-    #_(aset "onfocus" #(set-page :tv))))
+    (aset "onfocus" #(set-page :tv))))
 
 
 (rum/mount (app *state) (.getElementById js/document "app"))
