@@ -119,6 +119,14 @@
   (swap! *state assoc :error error :page :init))
 
 
+(defn- notify-error [error]
+  (swap! *state assoc :error error))
+
+
+(defn reset-error []
+  (swap! *state assoc :error nil))
+
+
 (defn set-job-poll-id [id]
   (swap! *state assoc :job-poll-id id))
 
@@ -146,11 +154,12 @@
     (log (str "Fetching jobs for " name_with_namespace))
     (-> (fetch request)
         (p/then (fn [jobs]
+                  (reset-error)
                   (log (str "Received " (count jobs) " for " name_with_namespace))
                   (merge-jobs project jobs)))
         (p/catch (fn [error]
                    (let [m (str error " while fetching jobs")]
-                     (set-loading-error m)))))))
+                     (notify-error m)))))))
 
 
 (defn fetch-jobs []
@@ -310,7 +319,7 @@
 
 
 (defmethod render-page :tv [state]
-  (let [{:keys [config logs projects jobs]} state
+  (let [{:keys [config logs projects jobs error]} state
         build-history (queries/build-history projects jobs)
         latest-builds (queries/latest-builds build-history)
         failed-builds (queries/failed-builds latest-builds)]
@@ -391,6 +400,11 @@
                (map-indexed
                 (fn [i m]
                   [:li {:key i} m])))]])
+      (when error
+        [:div.notification.is-danger
+         {:style {:position "fixed" :bottom "0" :left "0" :width "100%"}}
+         [:p.is-uppercase
+          [:span.icon.is-medium [:i.fas.fa-exclamation-triangle]] error]])
       [:button.button.is-dark
        {:on-click #(set-page :init)
         :style {:position "fixed" :bottom "5px" :right "5px"}} (icon "fas fa-cog")]])))
