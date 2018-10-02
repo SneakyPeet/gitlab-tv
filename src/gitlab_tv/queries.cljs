@@ -1,8 +1,15 @@
 (ns gitlab-tv.queries)
 
+(defn latest-jobs-for-pipeline [jobs]
+  (->> jobs
+       (group-by :name)
+       (map (fn [[_ jobs]]
+              (->> jobs
+                   (sort-by :created_at)
+                   last)))))
+
 
 (defn build-history [projects jobs]
-
   (let [jobs (->> jobs
                   vals
                   (group-by :pipeline)
@@ -16,6 +23,7 @@
                                      sort
                                      last)
                            stages (->> jobs
+                                       latest-jobs-for-pipeline
                                        (group-by :stage)
                                        (map
                                         (fn [[stage jobs]]
