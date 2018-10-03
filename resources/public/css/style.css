@@ -60,3 +60,11 @@
 .today-success .failure {
   color: #d06f6f;
 }
+
+.has-background-danger-faded {
+  background-color: #d06f6f !important;
+}
+
+.has-background-success-faded {
+  background-color: #7cce7c !important;
+}

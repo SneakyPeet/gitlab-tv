@@ -282,8 +282,8 @@
   (case status
     "running" "has-background-link"
     "pending" "has-background-info"
-    "success" "has-background-success"
-    "failed" "has-background-danger"
+    "success" "has-background-success-faded"
+    "failed" "has-background-danger-faded"
     "canceled" "has-background-warning"
     "skipped" "has-background-grey-light"
     "has-background-black"))
