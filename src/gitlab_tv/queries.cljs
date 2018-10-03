@@ -58,3 +58,18 @@
   (->> latest-builds
        (filter #(= "failed" (:status %)))
        (filter #(not (true? (:tag? %))))))
+
+
+(defn job-stats [jobs]
+  (->> jobs
+       vals
+       (filter #(or (= "failed" (:status %)) (= "success" (:status %))))
+       (map #(update % :created_at subs 0 10))
+       (group-by :created_at)
+       (map (fn [[day jobs]]
+              (let [statusses (->> (group-by :status jobs)
+                                   (map (fn [[s jobs]]
+                                          [(keyword s) (count jobs)]))
+                                   (into {}))]
+                (assoc statusses :day day))))
+       (sort-by :day)))
