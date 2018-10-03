@@ -31,6 +31,10 @@
     :description "Add your gitlab group id to see only group projects"
     :value ""
     :optional? true}
+   {:id :hide-job-stats
+    :description "set to true to hide the daily success vs failures bar chart"
+    :value ""
+    :optional? true}
    {:id :debug
     :description "set to true to view log"
     :value ""
@@ -58,7 +62,8 @@
     (-> field-config
         (assoc :href href
                :refresh-rate-seconds 60)
-        (update :debug #(= "true" %)))))
+        (update :debug #(= "true" %))
+        (update :hide-job-stats #(= "true" %)))))
 
 
 (defn tv-url [state]
@@ -318,17 +323,61 @@
      [:i {:class icon}]]))
 
 
+(defn jobs-bar-chart [job-stats]
+  (let [max-jobs (->> job-stats
+                      (map #(+ (:failed %) (:success %)))
+                      (apply max))
+        jobs (->> job-stats
+                  (map (fn [{:keys [success failed] :as job}]
+                         (let [success (or success 0)
+                               failed (or failed 0)
+                               total (+ success failed)
+                               total-height-% (* 100 (/ total max-jobs))
+                               success-% (* 100 (/ success total))
+                               failed-% (* 100 (/ failed total))]
+                           (assoc job
+                                  :total-height-% total-height-%
+                                  :success-% success-%
+                                  :failed-% failed-%)))))
+        today (-> (last jobs)
+                  :success-%
+                  (js/Math.floor))]
+    [:div.jobs-chart-container.has-background-dark
+     [:div.jobs-chart
+      (map-indexed
+       (fn [i {:keys [success-% failed-% total-height-%]}]
+         [:div.job-chart-day {:style {:height (str total-height-% "%")}}
+          [:div.job-bar.job-bar-failure
+           {:style {:height (str failed-% "%")}}]
+          [:div.job-bar.job-bar-success
+           {:style {:height (str success-% "%")}}]])
+       jobs)
+      (let [class (if (>= today 80) "success" "failure")]
+        [:div.today-success.has-text-centered
+         [:div.title.has-text-weight-bold.is-size-5
+          {:class class}
+          today "%"]
+         [:div.subtitle.has-text-weight-bold.is-size-7
+          {:class class}
+          "SUCCESS"]
+         [:div.subtitle.has-text-weight-bold.is-size-7
+          {:class class}
+          "TODAY"]])]]))
+
+
 (defmethod render-page :tv [state]
   (let [{:keys [config logs projects jobs error]} state
         build-history (queries/build-history projects jobs)
         latest-builds (queries/latest-builds build-history)
-        failed-builds (queries/failed-builds latest-builds)]
+        failed-builds (queries/failed-builds latest-builds)
+        job-stats (queries/job-stats jobs)]
     (poll
      [:div.tv.has-background-dark
       (when (empty? build-history)
         [:div
          [:h1.title.has-text-primary.has-text-centered "Loading all the Things"]
          [:h2.subtitle.has-text-primary.has-text-centered "(╯°□°）╯︵ ┻━┻"]])
+      (when-not (:hide-job-stats config) (jobs-bar-chart job-stats))
       [:div.columns.is-gapless
        [:div.column
         [:table.table.is-fullwidth.has-text-white

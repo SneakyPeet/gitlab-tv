@@ -7,4 +7,56 @@
   margin-left: 5px
 }
 
-d
+.jobs-chart-container {
+  position: fixed;
+  bottom: 0vh;
+  width: 100vw;
+  padding: 5px 50px 10px 0;
+}
+.jobs-chart {
+  display: flex;
+  flex-direction: row;
+  height: 50px;
+  align-items: flex-end;
+}
+
+.job-chart-day {
+  width: 5vw;
+  margin: 0 5px;
+  display:flex;
+  flex-direction: column;
+}
+
+.job-bar {
+  width:100%;
+}
+
+.job-bar.job-bar-success {
+  background-color: #7cce7c;
+}
+
+.job-bar.job-bar-failure {
+  background-color: #d06f6f;
+}
+
+.today-success {
+  margin-left: 10px;
+  min-width: 70px;
+}
+
+.today-success .title {
+  margin-bottom: 20px;
+}
+
+.today-success .subtitle {
+  margin-bottom: 0px;
+}
+
+.today-success .success {
+  color: #7cce7c;
+}
+
+
+.today-success .failure {
+  color: #d06f6f;
+}
