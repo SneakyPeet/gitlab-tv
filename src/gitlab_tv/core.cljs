@@ -151,27 +151,47 @@
 
 ;;;; PROCESS
 
-(defn fetch-job [project]
-  (let [{:keys [name_with_namespace id]} project
-        config (:config @*state)
-        fetch (gitlab/api log config)
-        request (gitlab/jobs id)]
-    (log (str "Fetching jobs for " name_with_namespace))
-    (-> (fetch request)
-        (p/then (fn [jobs]
-                  (reset-error)
-                  (log (str "Received " (count jobs) " for " name_with_namespace))
-                  (merge-jobs project jobs)))
-        (p/catch (fn [error]
-                   (let [m (str error " while fetching jobs")]
-                     (notify-error m)))))))
+(defn more-jobs-to-fetch? [jobs]
+  (if-not (>= (count jobs) gitlab/max-page-size)
+    false
+    (let [day-in-ms 86400000
+          oldest-job-date (->> jobs
+                               (map :created_at)
+                               sort
+                               first)
+          age-in-days (-> (- (js/Date.) (js/Date. oldest-job-date))
+                          (js/Math.abs)
+                          (/ day-in-ms))]
+      (> 31 age-in-days))))
 
 
-(defn fetch-jobs []
-  (let [projects (:projects @*state)]
-    (log (str "Fetching jobs for " (count projects) " projects"))
-    (doseq [project (vals projects)]
-      (fetch-job project))))
+(defn fetch-jobs-for-project
+  ([page? project] (fetch-jobs-for-project page? 1 project))
+  ([page? page-number project]
+   (let [{:keys [name_with_namespace id]} project
+         config (:config @*state)
+         fetch (gitlab/api log config)
+         request (gitlab/jobs id page-number)]
+     (log (str "Fetching jobs for " name_with_namespace " page " page-number))
+     (-> (fetch request)
+         (p/then (fn [jobs]
+                   (reset-error)
+                   (log (str "Received " (count jobs) " for " name_with_namespace))
+                   (merge-jobs project jobs)
+                   (when (and page? (more-jobs-to-fetch? jobs))
+                     (fetch-jobs-for-project true (inc page-number) project))))
+         (p/catch (fn [error]
+                    (let [m (str error " while fetching jobs")]
+                      (notify-error m))))))))
+
+
+(defn fetch-jobs
+  ([] (fetch-jobs false))
+  ([page?]
+   (let [projects (:projects @*state)]
+     (log (str "Fetching jobs for " (count projects) " projects"))
+     (doseq [project (vals projects)]
+       (fetch-jobs-for-project page? project)))))
 
 
 (defn start-job-polling []
@@ -208,7 +228,7 @@
                     (do
                       (log (str "Received " (count projects) " Projects"))
                       (merge-projects projects)
-                      (fetch-jobs)
+                      (fetch-jobs true)
                       (start-job-polling)))))
         (p/catch (fn [error]
                    (let [m (str error " while fetching " url " from " path)]
