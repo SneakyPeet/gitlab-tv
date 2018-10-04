@@ -38,6 +38,10 @@
    {:id :debug
     :description "set to true to view log"
     :value ""
+    :optional? true}
+   {:id :ignored-branches
+    :description "add ignored old broken builds as follows 'proj-1,branch-1,pro-2,branch-2"
+    :value "test-proj,test-branch,test-proj-2,test-branch-2"
     :optional? true}])
 
 
@@ -63,7 +67,11 @@
         (assoc :href href
                :refresh-rate-seconds 60)
         (update :debug #(= "true" %))
-        (update :hide-job-stats #(= "true" %)))))
+        (update :hide-job-stats #(= "true" %))
+        (update :ignored-branches #(->> (string/split (or % "") #",")
+                                        (partition 2)
+                                        (map (fn [[p b]] (str p b)))
+                                        set)))))
 
 
 (defn tv-url [state]
@@ -390,7 +398,7 @@
   (let [{:keys [config logs projects jobs error]} state
         build-history (queries/build-history projects jobs)
         latest-builds (queries/latest-builds build-history)
-        failed-builds (queries/failed-builds latest-builds)
+        failed-builds (queries/failed-builds (:ignored-branches config) latest-builds)
         job-stats (queries/job-stats jobs)]
     (poll
      [:div.tv.has-background-dark
