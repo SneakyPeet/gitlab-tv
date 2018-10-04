@@ -5,6 +5,8 @@
             [promesa.core :as p]
             [clojure.string :as string]))
 
+(def max-page-size 100)
+
 
 (defn projects []
   {:method :get
@@ -21,10 +23,11 @@
                   :per_page 20
                   :order-by "last_activity_at"}})
 
-(defn jobs [project-id]
+(defn jobs [project-id page-number]
   {:method :get
    :url (str "/projects/" project-id "/jobs")
-   :query-params {:per_page 100}})
+   :query-params {:per_page 100
+                  :page page-number}})
 
 
 (defn- wrap-api-path [request path]
