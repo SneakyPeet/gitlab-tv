@@ -178,7 +178,7 @@
                    (reset-error)
                    (log (str "Received " (count jobs) " for " name_with_namespace))
                    (merge-jobs project jobs)
-                   (when (and page? (more-jobs-to-fetch? jobs))
+                   (when (and (false? (:hide-job-stats config)) page? (more-jobs-to-fetch? jobs))
                      (fetch-jobs-for-project true (inc page-number) project))))
          (p/catch (fn [error]
                     (let [m (str error " while fetching jobs")]
