@@ -54,10 +54,11 @@
                    last)))))
 
 
-(defn failed-builds [latest-builds]
+(defn failed-builds [ignored-branches latest-builds]
   (->> latest-builds
        (filter #(= "failed" (:status %)))
-       (filter #(not (true? (:tag? %))))))
+       (filter #(not (true? (:tag? %))))
+       (filter #(do (not (contains? ignored-branches (str (:name %) (:ref %))))))))
 
 
 (defn job-stats [jobs]
