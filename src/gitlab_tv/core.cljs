@@ -385,7 +385,9 @@
           "TODAY"]])]]))
 
 
-(defmethod render-page :tv [state]
+(rum/defc tv < rum/static
+  [state]
+  (log "Render")
   (let [{:keys [config logs projects jobs error]} state
         build-history (queries/build-history projects jobs)
         latest-builds (queries/latest-builds build-history)
@@ -477,6 +479,10 @@
       [:button.button.is-dark
        {:on-click #(set-page :init)
         :style {:position "fixed" :bottom "5px" :right "5px"}} (icon "fas fa-cog")]])))
+
+
+(defmethod render-page :tv [state]
+  (tv state))
 
 
 (rum/defc app < rum/reactive [state]
