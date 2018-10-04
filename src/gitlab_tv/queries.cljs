@@ -61,6 +61,8 @@
        (filter #(do (not (contains? ignored-branches (str (:name %) (:ref %))))))))
 
 
+(def job-stats-total-days 40)
+
 (defn job-stats [jobs]
   (->> jobs
        vals
@@ -74,4 +76,4 @@
                                    (into {}))]
                 (assoc statusses :day day))))
        (sort-by :day)
-       (take-last 40)))
+       (take-last job-stats-total-days)))

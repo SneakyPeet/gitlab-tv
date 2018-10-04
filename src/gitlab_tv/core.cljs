@@ -170,7 +170,7 @@
           age-in-days (-> (- (js/Date.) (js/Date. oldest-job-date))
                           (js/Math.abs)
                           (/ day-in-ms))]
-      (> 31 age-in-days))))
+      (> queries/job-stats-total-days age-in-days))))
 
 
 (defn fetch-jobs-for-project
