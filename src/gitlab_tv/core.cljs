@@ -387,7 +387,6 @@
 
 (rum/defc tv < rum/static
   [state]
-  (log "Render")
   (let [{:keys [config logs projects jobs error]} state
         build-history (queries/build-history projects jobs)
         latest-builds (queries/latest-builds build-history)
