@@ -12,7 +12,7 @@
   {:method :get
    :url "/projects"
    :query-params {:simple true
-                  :per_page 20
+                  :per_page max-page-size
                   :order-by "last_activity_at"}})
 
 
@@ -20,13 +20,13 @@
   {:method :get
    :url (str "/groups/" group-id "/projects")
    :query-params {:simple true
-                  :per_page 20
+                  :per_page max-page-size
                   :order-by "last_activity_at"}})
 
 (defn jobs [project-id page-number]
   {:method :get
    :url (str "/projects/" project-id "/jobs")
-   :query-params {:per_page 100
+   :query-params {:per_page max-page-size
                   :page page-number}})
 
 
