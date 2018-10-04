@@ -73,4 +73,5 @@
                                           [(keyword s) (count jobs)]))
                                    (into {}))]
                 (assoc statusses :day day))))
-       (sort-by :day)))
+       (sort-by :day)
+       (take-last 40)))
